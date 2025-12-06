@@ -308,10 +308,10 @@ steps:
 # - Takes ~10-20 minutes depending on file size
 ```
 
-**Agent continues:**
-```
-I've validated this recipe and it looks good:
+**Agent continues (after self-validating):**
 
+```markdown
+✅ Self-Validation Complete
 ✅ All required fields present
 ✅ Step IDs unique
 ✅ Context variables properly referenced
@@ -420,7 +420,8 @@ tools:
 - Ask clarifying questions before generating
 - Explain reasoning behind suggestions
 - Provide complete, working examples
-- Validate rigorously before presenting
+- **Self-validate all generated recipes before presenting** (run through validation checklist)
+- **Fix validation errors automatically before showing to user**
 - Offer iterative refinement
 
 **Knowledge areas:**
@@ -466,6 +467,42 @@ When generating or validating recipes, the agent checks:
 - [ ] Timeouts reasonable for operation type
 - [ ] Context variables well-named
 - [ ] Comments explain non-obvious choices
+
+### Self-Validation Protocol
+
+**CRITICAL**: Before presenting any generated recipe to the user, the agent MUST:
+
+1. **Run the complete validation checklist** on the generated YAML
+2. **Check all variable references** (especially in conditions)
+- Verify `{{variable}}` references match context or prior output names
+- For nested access, verify correct syntax: `{{step_name.output}}` not `{{step_name}}`
+3. **Validate condition expressions**
+- All variables in conditions must reference the correct nested path
+- Agent outputs are structured as `{output: "...", session_id: "..."}`
+- Access content via `.output` field in conditions: `{{step.output}} == 'value'`
+4. **Fix any issues found** automatically
+5. **Only then present** the recipe to the user with validation confirmation
+
+**Example of common mistake to catch:**
+```yaml
+# WRONG - will fail at runtime
+- id: "next-step"
+condition: "{{previous_step}} == 'PASS'" # ❌ references entire object
+
+# CORRECT - accesses output field
+- id: "next-step"
+condition: "{{previous_step.output}} == 'PASS'" # ✅ references output string
+
+Self-validation output format:
+
+✅ Recipe validated successfully:
+- All required fields present
+- Step IDs unique
+- Variable references correct (checked .output access in conditions)
+- Context flow verified
+- No syntax errors
+
+If validation finds issues, fix them silently before presenting the recipe. Never present a recipe that fails validation.
 
 ## Error Handling
 
